@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modern Card Match</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  .background {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, #1e1b4b, #4c1d95, #7c3aed);
+    background-size: 400% 400%;
+    animation: gradientShift 12s ease infinite;
+    z-index: -1;
+  }
+
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .container {
+    width: 100%;
+    max-width: 640px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  header h1 {
+    color: #fff;
+    font-size: 2rem;
+    margin-bottom: 6px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  }
+
+  header p {
+    color: #e0d7ff;
+    margin-bottom: 20px;
+  }
+
+  .dashboard {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .box {
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 14px;
+    padding: 10px 18px;
+    color: #fff;
+    min-width: 90px;
+  }
+
+  .box span { font-size: 0.75rem; opacity: 0.85; }
+  .box h2 { font-size: 1.3rem; margin-top: 2px; }
+
+  .menu {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .menu button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid rgba(255,255,255,0.25);
+  }
+
+  .menu button:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+  }
+
+  .menu button.active {
+    background: #f59e0b;
+    color: #1e1b4b;
+    border-color: #f59e0b;
+  }
+
+  #restart {
+    background: #ef4444;
+    border-color: #ef4444;
+  }
+  #restart:hover { background: #dc2626; }
+
+  .game-board {
+    display: grid;
+    gap: 10px;
+    justify-content: center;
+    margin: 0 auto;
+  }
+
+  .card {
+    aspect-ratio: 3/4;
+    border-radius: 12px;
+    cursor: pointer;
+    position: relative;
+    perspective: 1000px;
+  }
+
+  .card-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.5s;
+  }
+
+  .card.flipped .card-inner,
+  .card.matched .card-inner {
+    transform: rotateY(180deg);
+  }
+
+  .card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backface-visibility: hidden;
+    font-size: 1.8rem;
+  }
+
+  .card-back {
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
+    border: 2px solid rgba(255,255,255,0.3);
+    color: #fff;
+    font-size: 1.4rem;
+  }
+
+  .card-front {
+    background: #fff;
+    transform: rotateY(180deg);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  .card.matched .card-front {
+    background: #d1fae5;
+    box-shadow: 0 0 0 2px #10b981 inset;
+  }
+
+  .card:not(.flipped):not(.matched):hover .card-inner {
+    transform: translateY(-4px) scale(1.03);
+  }
+
+  .popup {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+
+  .popup.hidden { display: none; }
+
+  .popup-content {
+    background: #fff;
+    border-radius: 16px;
+    padding: 30px 40px;
+    text-align: center;
+    max-width: 320px;
+  }
+
+  .popup-content h1 { margin-bottom: 8px; }
+  .popup-content p { color: #555; margin-bottom: 10px; }
+  .popup-content h2 { color: #7c3aed; margin-bottom: 16px; }
+
+  .popup-content button {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 10px;
+    background: #7c3aed;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .popup-content button:hover { background: #6d28d9; }
+
+  .loading {
+    position: fixed;
+    inset: 0;
+    background: rgba(30,27,75,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+  }
+  .loading.hidden { display: none; }
+
+  .loader {
+    width: 44px;
+    height: 44px;
+    border: 5px solid rgba(255,255,255,0.25);
+    border-top-color: #f59e0b;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="background"></div>
+
+<div class="container">
+
+    <header>
+        <h1>🃏 Modern Card Match</h1>
+        <p>Cocokkan semua kartu secepat mungkin.</p>
+    </header>
+
+    <section class="dashboard">
+        <div class="box"><span>⭐ Skor</span><h2 id="score">0</h2></div>
+        <div class="box"><span>🎯 Langkah</span><h2 id="moves">0</h2></div>
+        <div class="box"><span>⏱ Waktu</span><h2 id="timer">00:00</h2></div>
+        <div class="box"><span>🏆 High Score</span><h2 id="highScore">0</h2></div>
+    </section>
+
+    <section class="menu">
+        <button id="easy" class="active">Easy</button>
+        <button id="medium">Medium</button>
+        <button id="hard">Hard</button>
+        <button id="restart">🔄 Main Lagi</button>
+    </section>
+
+    <main>
+        <div class="game-board" id="gameBoard"></div>
+    </main>
+
+</div>
+
+<div class="popup hidden" id="popup">
+    <div class="popup-content">
+        <h1>🎉 Selamat!</h1>
+        <p>Kamu berhasil menyelesaikan permainan.</p>
+        <h2 id="finalTime">00:00</h2>
+        <button id="playAgain">Main Lagi</button>
+    </div>
+</div>
+
+<div class="loading hidden" id="loading">
+    <div class="loader"></div>
+</div>
+
+<script>
+(function () {
+  const ICONS = ['🍎','🍌','🍇','🍉','🍒','🍋','🥝','🍑','🍓','🥥','🍍','🥭','🍐','🍈','🥑','🍊','🌽','🥕','🍄','🧄'];
+
+  const DIFFICULTY = {
+    easy:   { pairs: 6,  cols: 4 },
+    medium: { pairs: 8,  cols: 4 },
+    hard:   { pairs: 12, cols: 6 }
+  };
+
+  const gameBoard = document.getElementById('gameBoard');
+  const scoreEl = document.getElementById('score');
+  const movesEl = document.getElementById('moves');
+  const timerEl = document.getElementById('timer');
+  const highScoreEl = document.getElementById('highScore');
+  const popup = document.getElementById('popup');
+  const finalTimeEl = document.getElementById('finalTime');
+  const loading = document.getElementById('loading');
+
+  const btnEasy = document.getElementById('easy');
+  const btnMedium = document.getElementById('medium');
+  const btnHard = document.getElementById('hard');
+  const btnRestart = document.getElementById('restart');
+  const btnPlayAgain = document.getElementById('playAgain');
+
+  let currentDifficulty = 'easy';
+  let cards = [];
+  let flippedCards = [];
+  let matchedCount = 0;
+  let moves = 0;
+  let score = 0;
+  let timerInterval = null;
+  let seconds = 0;
+  let lockBoard = false;
+  let highScore = Number(sessionStorage.getItem('cardMatchHighScore') || 0);
+
+  highScoreEl.textContent = highScore;
+
+  function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function formatTime(totalSeconds) {
+    const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+    const s = String(totalSeconds % 60).padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  function startTimer() {
+    stopTimer();
+    seconds = 0;
+    timerEl.textContent = formatTime(seconds);
+    timerInterval = setInterval(() => {
+      seconds++;
+      timerEl.textContent = formatTime(seconds);
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = null;
+  }
+
+  function setActiveButton(level) {
+    [btnEasy, btnMedium, btnHard].forEach(b => b.classList.remove('active'));
+    if (level === 'easy') btnEasy.classList.add('active');
+    if (level === 'medium') btnMedium.classList.add('active');
+    if (level === 'hard') btnHard.classList.add('active');
+  }
+
+  function buildBoard(level) {
+    loading.classList.remove('hidden');
+
+    setTimeout(() => {
+      currentDifficulty = level;
+      setActiveButton(level);
+
+      const { pairs, cols } = DIFFICULTY[level];
+      const chosenIcons = shuffle(ICONS.slice()).slice(0, pairs);
+      const deck = shuffle([...chosenIcons, ...chosenIcons]);
+
+      cards = deck;
+      flippedCards = [];
+      matchedCount = 0;
+      moves = 0;
+      score = 0;
+      lockBoard = false;
+
+      scoreEl.textContent = score;
+      movesEl.textContent = moves;
+      popup.classList.add('hidden');
+
+      gameBoard.innerHTML = '';
+      gameBoard.style.gridTemplateColumns = `repeat(${cols}, minmax(50px, 80px))`;
+
+      deck.forEach((icon, index) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.icon = icon;
+        card.dataset.index = index;
+
+        card.innerHTML = `
+          <div class="card-inner">
+            <div class="card-face card-back">?</div>
+            <div class="card-face card-front">${icon}</div>
+          </div>
+        `;
+
+        card.addEventListener('click', () => onCardClick(card));
+        gameBoard.appendChild(card);
+      });
+
+      startTimer();
+      loading.classList.add('hidden');
+    }, 250);
+  }
+
+  function onCardClick(card) {
+    if (lockBoard) return;
+    if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
+    if (flippedCards.length === 2) return;
+
+    card.classList.add('flipped');
+    flippedCards.push(card);
+
+    if (flippedCards.length === 2) {
+      moves++;
+      movesEl.textContent = moves;
+      checkMatch();
+    }
+  }
+
+  function checkMatch() {
+    const [first, second] = flippedCards;
+    const isMatch = first.dataset.icon === second.dataset.icon;
+
+    if (isMatch) {
+      lockBoard = true;
+      setTimeout(() => {
+        first.classList.add('matched');
+        second.classList.add('matched');
+        matchedCount += 2;
+        score += 10;
+        scoreEl.textContent = score;
+        flippedCards = [];
+        lockBoard = false;
+
+        if (matchedCount === cards.length) {
+          onWin();
+        }
+      }, 400);
+    } else {
+      lockBoard = true;
+      score = Math.max(0, score - 2);
+      scoreEl.textContent = score;
+      setTimeout(() => {
+        first.classList.remove('flipped');
+        second.classList.remove('flipped');
+        flippedCards = [];
+        lockBoard = false;
+      }, 800);
+    }
+  }
+
+  function onWin() {
+    stopTimer();
+    finalTimeEl.textContent = formatTime(seconds);
+
+    if (score > highScore) {
+      highScore = score;
+      sessionStorage.setItem('cardMatchHighScore', String(highScore));
+      highScoreEl.textContent = highScore;
+    }
+
+    setTimeout(() => {
+      popup.classList.remove('hidden');
+    }, 300);
+  }
+
+  btnEasy.addEventListener('click', () => buildBoard('easy'));
+  btnMedium.addEventListener('click', () => buildBoard('medium'));
+  btnHard.addEventListener('click', () => buildBoard('hard'));
+  btnRestart.addEventListener('click', () => buildBoard(currentDifficulty));
+  btnPlayAgain.addEventListener('click', () => {
+    popup.classList.add('hidden');
+    buildBoard(currentDifficulty);
+  });
+
+  buildBoard('easy');
+})();
+</script>
+
+</body>
+</html>
